@@ -186,8 +186,6 @@ const extractUsers = async ({
   );
   userCount = users.length;
 
-  console.log(`Found ${userCount} total users. Fetching user infos...`);
-
   return {
     users,
     stargazers,
@@ -328,7 +326,13 @@ const extract = async (argv: {
     watchers,
   } = await extractUsers({ ...argv, octokit, owner, repo });
 
-  const userInfos = await getUserInfos({ octokit, users });
+  const allUsers = users.concat([owner]);
+  console.log(`Found ${allUsers.length} total users. Fetching user infos...`);
+
+  const userInfos = await getUserInfos({
+    octokit,
+    users: allUsers,
+  });
 
   console.log(
     `Found ${userInfos.filter((u) => u.emails.length > 0).length} emails.`
