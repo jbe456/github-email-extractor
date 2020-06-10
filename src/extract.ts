@@ -1,57 +1,8 @@
-#!/usr/bin/env node
-import yargs from "yargs";
+import { createOctokit, multiPagePull } from "./utils";
 import { Octokit } from "@octokit/rest";
-import { createOAuthAppAuth } from "@octokit/auth";
-import _ from "lodash";
 import fs from "fs";
 import path from "path";
-
-const createOctokit = (options: {
-  clientId?: string;
-  clientSecret?: string;
-}) => {
-  return options.clientId && options.clientSecret
-    ? new Octokit({
-        authStrategy: createOAuthAppAuth,
-        auth: {
-          clientId: options.clientId,
-          clientSecret: options.clientSecret,
-        },
-      })
-    : new Octokit();
-};
-
-const status = async (options: { clientId: string; clientSecret: string }) => {
-  const octokit = createOctokit(options);
-  const rateLimit = await octokit.rateLimit.get();
-
-  const remaining = rateLimit.data.resources.core.remaining;
-  const limit = rateLimit.data.resources.core.limit;
-  const resetTimestamp = rateLimit.data.resources.core.reset;
-
-  console.log(`Status: ${remaining}/${limit}`);
-  console.log(`Reset: ${new Date(resetTimestamp).toTimeString()}`);
-};
-
-const multiPagePull = async function <T>(
-  fetch: (options: { page: number; per_page: number }) => Promise<T[]>
-) {
-  const allResults = [];
-  let page = 1;
-  let keepFetching = true;
-
-  while (keepFetching) {
-    const result = await fetch({
-      per_page: 100,
-      page: page,
-    });
-
-    allResults.push(...result);
-    keepFetching = result.length === 100;
-    page++;
-  }
-  return allResults;
-};
+import _ from "lodash";
 
 const extractUsers = async ({
   octokit,
@@ -66,6 +17,11 @@ const extractUsers = async ({
 
   let users = [];
   let userCount = 0;
+
+  // Owner
+  users.push(owner);
+  console.log(`Found 1 owner.`);
+  userCount = users.length;
 
   // Stargazers
   const stargazers = await multiPagePull(async (options) => {
@@ -308,7 +264,7 @@ const toCSV = ({
   return `${headers}\n${content}`;
 };
 
-const extract = async (argv: {
+export const extract = async (argv: {
   clientId: string;
   clientSecret: string;
   repo: string;
@@ -326,12 +282,11 @@ const extract = async (argv: {
     watchers,
   } = await extractUsers({ ...argv, octokit, owner, repo });
 
-  const allUsers = users.concat([owner]);
-  console.log(`Found ${allUsers.length} total users. Fetching user infos...`);
+  console.log(`Found ${users.length} total users. Fetching user infos...`);
 
   const userInfos = await getUserInfos({
     octokit,
-    users: allUsers,
+    users: users,
   });
 
   console.log(
@@ -354,30 +309,3 @@ const extract = async (argv: {
 
   console.log(`Exported results to ${filePath}.`);
 };
-
-yargs
-  .scriptName("github-email-extractor")
-  .usage("$0 <cmd> [args]")
-  .option("clientId", {
-    description: "Github app client id",
-    type: "string",
-  })
-  .option("clientSecret", {
-    description: "Github app client secret",
-    type: "string",
-  })
-  .command("status", "Get Github rate limit status", () => {}, status)
-  .command(
-    "extract",
-    "Extract emails from a github repo",
-    (yargs) => {
-      yargs.option("repo", {
-        demandOption: true,
-        type: "string",
-        description: "Repository to extract emails from",
-      });
-    },
-    extract
-  )
-  .demandCommand(1, "")
-  .help().argv;
