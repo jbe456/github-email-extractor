@@ -142,15 +142,7 @@ const extractUsers = async ({
   );
   userCount = users.length;
 
-  return {
-    users,
-    stargazers,
-    watchers,
-    forkOwners: uniqueForkOwners,
-    issueAssignees: uniqueIssueAssignees,
-    issueCommenters: uniqueIssueCommenters,
-    issueReporters: uniqueIssueReporters,
-  };
+  return users;
 };
 
 const getUserInfos = async ({
@@ -205,22 +197,10 @@ const toCSV = ({
   owner,
   repo,
   userInfos,
-  forkOwners,
-  issueAssignees,
-  issueCommenters,
-  issueReporters,
-  stargazers,
-  watchers,
 }: {
   owner: string;
   repo: string;
   userInfos: { login: string; name: string; emails: string[] }[];
-  forkOwners: string[];
-  issueAssignees: string[];
-  issueCommenters: string[];
-  issueReporters: string[];
-  stargazers: string[];
-  watchers: string[];
 }) => {
   const maxEmails = _.max(userInfos.map((u) => u.emails.length));
   const emailHeaders = Array.from(Array(maxEmails).keys()).map(
@@ -233,12 +213,6 @@ const toCSV = ({
     "username",
     "name",
     emailHeaders.join(", "),
-    "stargazer",
-    "watcher",
-    "forkOwner",
-    "issueAssignee",
-    "issueReporter",
-    "issueCommenter",
   ].join(", ");
 
   const content = userInfos
@@ -251,12 +225,6 @@ const toCSV = ({
         emailHeaders
           .map((e, k) => (k < u.emails.length ? u.emails[k] : undefined))
           .join(", "),
-        stargazers.includes(u.login),
-        watchers.includes(u.login),
-        forkOwners.includes(u.login),
-        issueAssignees.includes(u.login),
-        issueReporters.includes(u.login),
-        issueCommenters.includes(u.login),
       ].join(", ")
     )
     .join(`\n`);
@@ -272,15 +240,7 @@ export const extract = async (argv: {
   const octokit = createOctokit(argv);
   const [owner, repo] = argv.repo.split("/");
 
-  const {
-    users,
-    forkOwners,
-    issueAssignees,
-    issueCommenters,
-    issueReporters,
-    stargazers,
-    watchers,
-  } = await extractUsers({ ...argv, octokit, owner, repo });
+  const users = await extractUsers({ ...argv, octokit, owner, repo });
 
   console.log(`Found ${users.length} total users. Fetching user infos...`);
 
@@ -297,12 +257,6 @@ export const extract = async (argv: {
     owner,
     repo,
     userInfos,
-    forkOwners,
-    issueAssignees,
-    issueCommenters,
-    issueReporters,
-    stargazers,
-    watchers,
   });
   const filePath = path.join(process.cwd(), `${owner}-${repo}.csv`);
   fs.writeFileSync(filePath, csv);
