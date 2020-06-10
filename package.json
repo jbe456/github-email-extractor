@@ -2,7 +2,7 @@
   "version": "0.1",
   "license": "MIT",
   "bin": {
-    "github-email-extractor": "dist/index"
+    "gee": "dist/index"
   },
   "dependencies": {
     "@octokit/auth": "^2.0.0",

@@ -4,8 +4,16 @@ import { status } from "./status";
 import { extract } from "./extract";
 
 yargs
-  .scriptName("github-email-extractor")
-  .usage("$0 <cmd> [args]")
+  .scriptName("gee")
+  .usage(
+    [
+      "Extract Github user emails and names from a specific repository.\n",
+      "Example:",
+      "$0 status",
+      "$0 status --clientId XX --clientSecret YY",
+      "$0 extract --clientId XX --clientSecret YY --repo jbe456/github-email-extractor",
+    ].join("\n")
+  )
   .option("clientId", {
     description: "Github app client id",
     type: "string",
