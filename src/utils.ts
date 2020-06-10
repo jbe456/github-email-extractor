@@ -1,5 +1,6 @@
 import { Octokit } from "@octokit/rest";
 import { createOAuthAppAuth } from "@octokit/auth";
+import _ from "lodash";
 
 export const createOctokit = (options: {
   clientId?: string;
@@ -34,4 +35,43 @@ export const multiPagePull = async function <T>(
     page++;
   }
   return allResults;
+};
+
+export const toCSV = ({
+  owner,
+  repo,
+  userInfos,
+}: {
+  owner: string;
+  repo: string;
+  userInfos: { login: string; name: string; emails: string[] }[];
+}) => {
+  const maxEmails = _.max(userInfos.map((u) => u.emails.length));
+  const emailHeaders = Array.from(Array(maxEmails).keys()).map(
+    (k) => `email-${k}`
+  );
+
+  const headers = [
+    "owner",
+    "repo",
+    "username",
+    "name",
+    emailHeaders.join(", "),
+  ].join(", ");
+
+  const content = userInfos
+    .map((u) =>
+      [
+        owner,
+        repo,
+        u.login,
+        u.name,
+        emailHeaders
+          .map((e, k) => (k < u.emails.length ? u.emails[k] : undefined))
+          .join(", "),
+      ].join(", ")
+    )
+    .join(`\n`);
+
+  return `${headers}\n${content}`;
 };
