@@ -7,16 +7,16 @@ yargs
   .scriptName("gee")
   .usage(
     [
-      "Extract Github user emails and names from a specific repository.\n",
+      "Extract Github user emails and names from one or multiple repositories.\n",
       "Usage:",
       "# Get Github rate limit status",
       "> $0 status",
       "# Get Github rate limit status while authenticated",
       "> $0 status --clientId XX --clientSecret YY",
       "# Extract user names & emails from jbe456/github-email-extractor",
-      "> $0 extract --clientId XX --clientSecret YY --repo jbe456/github-email-extractor",
+      "> $0 extract --clientId XX --clientSecret YY --repos jbe456/github-email-extractor",
       "# Extract user names & emails from jbe456/github-email-extractor and export results into folder 'ZZ'",
-      "> $0 extract --clientId XX --clientSecret YY --repo jbe456/github-email-extractor --output ZZ",
+      "> $0 extract --clientId XX --clientSecret YY --repos jbe456/github-email-extractor --output ZZ",
     ].join("\n")
   )
   .option("clientId", {
@@ -30,13 +30,14 @@ yargs
   .command("status", "Get Github rate limit status", () => {}, status)
   .command(
     "extract",
-    "Extract emails from a github repo",
+    "Extract emails from one or multiple github repos",
     (yargs) => {
       yargs
-        .option("repo", {
+        .option("repos", {
           demandOption: true,
-          type: "string",
-          description: "Repository to extract emails from",
+          type: "array",
+          description:
+            "A list of space-separated repositories to extract emails from",
         })
         .option("output", {
           type: "string",

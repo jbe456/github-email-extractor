@@ -6,7 +6,7 @@ Extract Github user emails and names from a specific repository and store them a
 
 ```console
 > gee --help
-Extract Github user emails and names from a specific repository.
+Extract Github user emails and names from one or multiple repositories.
 
 Usage:
 # Get Github rate limit status
@@ -14,16 +14,16 @@ Usage:
 # Get Github rate limit status while authenticated
 > gee status --clientId XX --clientSecret YY
 # Extract user names & emails from jbe456/github-email-extractor
-> gee extract --clientId XX --clientSecret YY --repo
+> gee extract --clientId XX --clientSecret YY --repos
 jbe456/github-email-extractor
 # Extract user names & emails from jbe456/github-email-extractor and export
 results into folder 'ZZ'
-> gee extract --clientId XX --clientSecret YY --repo
+> gee extract --clientId XX --clientSecret YY --repos
 jbe456/github-email-extractor --output ZZ
 
 Commands:
   gee status   Get Github rate limit status
-  gee extract  Extract emails from a github repo
+  gee extract  Extract emails from one or multiple github repos
 
 Options:
   --version       Show version number                                  [boolean]
@@ -36,14 +36,15 @@ Options:
 > gee extract --help
 gee extract
 
-Extract emails from a github repo
+Extract emails from one or multiple github repos
 
 Options:
   --version       Show version number                                  [boolean]
   --clientId      Github app client id                                  [string]
   --clientSecret  Github app client secret                              [string]
   --help          Show help                                            [boolean]
-  --repo          Repository to extract emails from          [string] [required]
+  --repos         A list of space-separated repositories to extract emails from
+                                                              [array] [required]
   --output        Destination folder where CSV results are exported, relative or
                   absolute path                                         [string]
   --maxEmails     Maximum number of emails to extract per Github user.

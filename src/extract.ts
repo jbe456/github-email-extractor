@@ -175,62 +175,78 @@ const getUserInfos = async ({
 export const extract = async (argv: {
   clientId: string;
   clientSecret: string;
-  repo: string;
+  repos: string[];
   output: string;
   maxEmails: number;
 }) => {
   const octokit = createOctokit(argv);
-  const [owner, repo] = argv.repo.split("/");
 
-  console.log("-----------------------------------------------");
-  console.log(`* ${owner}/${repo}                             `);
-  console.log("-----------------------------------------------");
+  const stats: {
+    repoUrl: string;
+    emailsCount: number;
+    usersCount: number;
+    emailRate: number;
+  }[] = [];
 
-  console.log(`Extracting users from ${owner}/${repo}...`);
+  await argv.repos.reduce(async (promise, repoUrl) => {
+    await promise;
 
-  const users = await extractUsers({
-    ...argv,
-    octokit,
-    owner,
-    repo,
-    callback: ({ resultCount, step, newUsers }) => {
-      console.log(
-        `- Found ${resultCount} ${step} and ${newUsers} additional user(s).`
-      );
-    },
-  });
+    const [owner, repo] = repoUrl.split("/");
 
-  const usersCount = users.length;
-  console.log(`Extracted ${usersCount} users total.`);
-  console.log(`Extracting user infos...`);
+    console.log("-----------------------------------------------");
+    console.log(`* ${owner}/${repo}                             `);
+    console.log("-----------------------------------------------");
 
-  const userInfos = await getUserInfos({
-    octokit,
-    users: users,
-  });
+    console.log(`Extracting users from ${owner}/${repo}...`);
 
-  const emailsCount = userInfos.filter((u) => u.emails.length > 0).length;
-  const emailRate = Math.round((emailsCount / usersCount) * 100);
-  console.log(`Extracted ${emailsCount}/${usersCount} emails (${emailRate}%).`);
+    const users = await extractUsers({
+      ...argv,
+      octokit,
+      owner,
+      repo,
+      callback: ({ resultCount, step, newUsers }) => {
+        console.log(
+          `- Found ${resultCount} ${step} and ${newUsers} additional user(s).`
+        );
+      },
+    });
 
-  const csv = toCSV({
-    owner,
-    repo,
-    userInfos,
-    maxEmails: argv.maxEmails,
-  });
+    const usersCount = users.length;
+    console.log(`Extracted ${usersCount} users total.`);
+    console.log(`Extracting user infos...`);
 
-  const folderPath = path.join(
-    ...[process.cwd(), argv.output].filter((x) => x !== undefined)
-  );
-  fs.mkdir(folderPath, { recursive: true }, (err) => {
-    if (err) throw err;
-  });
+    const userInfos = await getUserInfos({
+      octokit,
+      users: users,
+    });
 
-  const filePath = path.join(folderPath, `${owner}-${repo}.csv`);
-  fs.writeFileSync(filePath, csv);
+    const emailsCount = userInfos.filter((u) => u.emails.length > 0).length;
+    const emailRate = Math.round((emailsCount / usersCount) * 100);
+    console.log(
+      `Extracted ${emailsCount}/${usersCount} emails (${emailRate}%).`
+    );
 
-  console.log(`Results exported to ${filePath}`);
+    const csv = toCSV({
+      owner,
+      repo,
+      userInfos,
+      maxEmails: argv.maxEmails,
+    });
+
+    const folderPath = path.join(
+      ...[process.cwd(), argv.output].filter((x) => x !== undefined)
+    );
+    fs.mkdir(folderPath, { recursive: true }, (err) => {
+      if (err) throw err;
+    });
+
+    const filePath = path.join(folderPath, `${owner}-${repo}.csv`);
+    fs.writeFileSync(filePath, csv);
+
+    console.log(`Results exported to ${filePath}`);
+
+    stats.push({ repoUrl, emailsCount, usersCount, emailRate });
+  }, Promise.resolve());
 
   console.log("-----------------------------------------------");
   console.log("                    SUMMARY                    ");
@@ -240,7 +256,24 @@ export const extract = async (argv: {
     head: ["repo", "emails", "users", "rate"],
   });
 
-  table.push([`${owner}/${repo}`, emailsCount, usersCount, `${emailRate}%`]);
+  stats.forEach((stat) => {
+    table.push([
+      stat.repoUrl,
+      stat.emailsCount,
+      stat.usersCount,
+      `${stat.emailRate}%`,
+    ]);
+  });
+
+  const totalEmailsCount = _.sumBy(stats, "emailsCount");
+  const totalUsersCount = _.sumBy(stats, "usersCount");
+  const avgEmailRate = Math.round((totalEmailsCount / totalUsersCount) * 100);
+  table.push([
+    "* TOTAL",
+    totalEmailsCount,
+    totalUsersCount,
+    `${avgEmailRate}%`,
+  ]);
 
   console.log(table.toString());
 };
