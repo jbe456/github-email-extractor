@@ -1,28 +1,59 @@
-### Github email extractor
+## Github email extractor
 
-Extract Github user emails and names from a specific repository and store them as CSV files.
+Extract Github user emails and names from Github repositories and export them as CSV files.
 
-#### CLI
+Features:
+
+- Get Github rate limit status
+- Extract name from owner, stargazers, watchers, issues, forks & comments
+- Extract emails from user profile and push events.
+- Extract name & emails from a list of multiple repositories
+- Extract name & emails from all repositories matching a Github search query like "topic:analysis language:python"
+- Uses a file system cache so that you can:
+  - grab data from repos containing several thousands of users with multiple trials
+  - safely retry any command without wasting Github API calls
+
+### CLI
 
 ```console
 > gee --help
-Extract Github user emails and names from one or multiple repositories.
-
-Usage:
-  # Get default Github rate limit status
-  gee status
-  # Get authenticated Github rate limit status
-  gee status --clientId XX --clientSecret YY
-  # Extract user names & emails from ownerA/repoA
-  gee extract --clientId XX --clientSecret YY --repos ownerA/repoA
-  # Extract user names & emails from ownerA/repoA & ownerB/repoB
-  # and export results into folder 'ZZ'
-  gee extract --clientId XX --clientSecret YY --repos ownerA/repoA ownerB/repoB
-  --output ZZ
+gee status --help
+gee extract --help
 
 Commands:
   gee status   Get Github rate limit status
-  gee extract  Extract emails from one or multiple github repos
+  gee extract  Extract Github user emails and names from one or multiple
+               repositories
+
+Options:
+  --version       Show version number                                  [boolean]
+  --clientId      Github app client id                                  [string]
+  --clientSecret  Github app client secret                              [string]
+  --help          Show help                                            [boolean]
+
+Examples:
+  gee status                                Get default Github rate limit status
+  gee status --clientId XX --clientSecret   Get authenticated Github rate limit
+  YY                                        status
+  gee extract --clientId XX --clientSecret  Extract user names & emails from a
+  YY --repos ownerA/repoA                   single repository
+  gee extract --clientId XX --clientSecret  Extract user names & emails from
+  YY --repos ownerA/repoA ownerB/repoB      multiple repositories and export all
+  --output ZZ                               results under specified folder
+  gee extract --clientId XX --clientSecret  Extract user names & emails from
+  YY --query 'topic:analysis                repositories whose topic and
+  language:python' --output                 language matches the query and
+  analysis-python.csv                       export all results into one file
+
+```
+
+#### status
+
+```console
+> gee status --help
+gee status
+
+Get Github rate limit status
 
 Options:
   --version       Show version number                                  [boolean]
@@ -31,11 +62,13 @@ Options:
   --help          Show help                                            [boolean]
 ```
 
+#### extract
+
 ```console
 > gee extract --help
 gee extract
 
-Extract emails from one or multiple github repos
+Extract Github user emails and names from one or multiple repositories
 
 Options:
   --version       Show version number                                  [boolean]
@@ -43,9 +76,12 @@ Options:
   --clientSecret  Github app client secret                              [string]
   --help          Show help                                            [boolean]
   --repos         A list of space-separated repositories to extract emails from
-                                                              [array] [required]
+                                                                         [array]
+  --query         A Github search query to select repositories to extract emails
+                  from                                                  [string]
   --output        Destination folder where CSV results are exported, relative or
-                  absolute path                                         [string]
+                  absolute path. If a output points to a file, will export all
+                  results to one file only                              [string]
   --maxEmails     Maximum number of emails to extract per Github user.
                                                            [number] [default: 2]
   --cacheExpiry   Number of days before cache entities expire.

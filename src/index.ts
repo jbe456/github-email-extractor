@@ -5,20 +5,24 @@ import { extract } from "./extract";
 
 yargs
   .scriptName("gee")
-  .usage(
-    [
-      "Extract Github user emails and names from one or multiple repositories.\n",
-      "Usage:",
-      "  # Get default Github rate limit status",
-      "  $0 status",
-      "  # Get authenticated Github rate limit status",
-      "  $0 status --clientId XX --clientSecret YY",
-      "  # Extract user names & emails from ownerA/repoA",
-      "  $0 extract --clientId XX --clientSecret YY --repos ownerA/repoA",
-      "  # Extract user names & emails from ownerA/repoA & ownerB/repoB",
-      "  # and export results into folder 'ZZ'",
-      "  $0 extract --clientId XX --clientSecret YY --repos ownerA/repoA ownerB/repoB --output ZZ",
-    ].join("\n")
+  .usage("$0 status --help")
+  .usage("$0 extract --help")
+  .example("$0 status", "Get default Github rate limit status")
+  .example(
+    "$0 status --clientId XX --clientSecret YY",
+    "Get authenticated Github rate limit status"
+  )
+  .example(
+    "$0 extract --clientId XX --clientSecret YY --repos ownerA/repoA",
+    "Extract user names & emails from a single repository"
+  )
+  .example(
+    "$0 extract --clientId XX --clientSecret YY --repos ownerA/repoA ownerB/repoB --output ZZ",
+    "Extract user names & emails from multiple repositories and export all results under specified folder"
+  )
+  .example(
+    "$0 extract --clientId XX --clientSecret YY --query 'topic:analysis language:python' --output analysis-python.csv",
+    "Extract user names & emails from repositories whose topic and language matches the query and export all results into one file"
   )
   .option("clientId", {
     description: "Github app client id",
@@ -31,7 +35,7 @@ yargs
   .command("status", "Get Github rate limit status", () => {}, status)
   .command(
     "extract",
-    "Extract emails from one or multiple github repos",
+    "Extract Github user emails and names from one or multiple repositories",
     (yargs) => {
       yargs
         .check(function (argv) {
@@ -56,7 +60,7 @@ yargs
         .option("output", {
           type: "string",
           description:
-            "Destination folder where CSV results are exported, relative or absolute path",
+            "Destination folder where CSV results are exported, relative or absolute path. If a output points to a file, will export all results to one file only",
         })
         .option("maxEmails", {
           type: "number",
