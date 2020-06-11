@@ -9,14 +9,15 @@ yargs
     [
       "Extract Github user emails and names from one or multiple repositories.\n",
       "Usage:",
-      "# Get Github rate limit status",
-      "> $0 status",
-      "# Get Github rate limit status while authenticated",
-      "> $0 status --clientId XX --clientSecret YY",
-      "# Extract user names & emails from jbe456/github-email-extractor",
-      "> $0 extract --clientId XX --clientSecret YY --repos jbe456/github-email-extractor",
-      "# Extract user names & emails from jbe456/github-email-extractor and export results into folder 'ZZ'",
-      "> $0 extract --clientId XX --clientSecret YY --repos jbe456/github-email-extractor --output ZZ",
+      "  # Get default Github rate limit status",
+      "  $0 status",
+      "  # Get authenticated Github rate limit status",
+      "  $0 status --clientId XX --clientSecret YY",
+      "  # Extract user names & emails from ownerA/repoA",
+      "  $0 extract --clientId XX --clientSecret YY --repos ownerA/repoA",
+      "  # Extract user names & emails from ownerA/repoA & ownerB/repoB",
+      "  # and export results into folder 'ZZ'",
+      "  $0 extract --clientId XX --clientSecret YY --repos ownerA/repoA ownerB/repoB --output ZZ",
     ].join("\n")
   )
   .option("clientId", {

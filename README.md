@@ -9,17 +9,16 @@ Extract Github user emails and names from a specific repository and store them a
 Extract Github user emails and names from one or multiple repositories.
 
 Usage:
-# Get Github rate limit status
-> gee status
-# Get Github rate limit status while authenticated
-> gee status --clientId XX --clientSecret YY
-# Extract user names & emails from jbe456/github-email-extractor
-> gee extract --clientId XX --clientSecret YY --repos
-jbe456/github-email-extractor
-# Extract user names & emails from jbe456/github-email-extractor and export
-results into folder 'ZZ'
-> gee extract --clientId XX --clientSecret YY --repos
-jbe456/github-email-extractor --output ZZ
+  # Get default Github rate limit status
+  gee status
+  # Get authenticated Github rate limit status
+  gee status --clientId XX --clientSecret YY
+  # Extract user names & emails from ownerA/repoA
+  gee extract --clientId XX --clientSecret YY --repos ownerA/repoA
+  # Extract user names & emails from ownerA/repoA & ownerB/repoB
+  # and export results into folder 'ZZ'
+  gee extract --clientId XX --clientSecret YY --repos ownerA/repoA ownerB/repoB
+  --output ZZ
 
 Commands:
   gee status   Get Github rate limit status
