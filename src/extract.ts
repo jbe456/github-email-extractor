@@ -175,6 +175,7 @@ export const extract = async (argv: {
   clientId: string;
   clientSecret: string;
   repo: string;
+  output: string;
 }) => {
   const octokit = createOctokit(argv);
   const [owner, repo] = argv.repo.split("/");
@@ -213,7 +214,15 @@ export const extract = async (argv: {
     repo,
     userInfos,
   });
-  const filePath = path.join(process.cwd(), `${owner}-${repo}.csv`);
+
+  const folderPath = path.join(
+    ...[process.cwd(), argv.output].filter((x) => x !== undefined)
+  );
+  fs.mkdir(folderPath, { recursive: true }, (err) => {
+    if (err) throw err;
+  });
+
+  const filePath = path.join(folderPath, `${owner}-${repo}.csv`);
   fs.writeFileSync(filePath, csv);
 
   console.log(`Results exported to ${filePath}`);
