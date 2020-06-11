@@ -34,11 +34,24 @@ yargs
     "Extract emails from one or multiple github repos",
     (yargs) => {
       yargs
+        .check(function (argv) {
+          if ((argv.repos && !argv.query) || (!argv.repos && argv.query)) {
+            return true;
+          } else {
+            throw new Error(
+              "Error: pass at least one of 'repos' or 'query' options but not both."
+            );
+          }
+        })
         .option("repos", {
-          demandOption: true,
           type: "array",
           description:
             "A list of space-separated repositories to extract emails from",
+        })
+        .option("query", {
+          type: "string",
+          description:
+            "A Github search query to select repositories to extract emails from",
         })
         .option("output", {
           type: "string",

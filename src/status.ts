@@ -7,10 +7,12 @@ export const status = async (options: {
   const octokit = createOctokit(options);
   const rateLimit = await octokit.rateLimit.get();
 
-  const remaining = rateLimit.data.resources.core.remaining;
-  const limit = rateLimit.data.resources.core.limit;
-  const resetTimestamp = rateLimit.data.resources.core.reset;
+  const coreRemaining = rateLimit.data.resources.core.remaining;
+  const coreLimit = rateLimit.data.resources.core.limit;
 
-  console.log(`Status: ${remaining}/${limit}`);
-  console.log(`Reset: ${new Date(resetTimestamp).toTimeString()}`);
+  const searchRemaining = rateLimit.data.resources.search.remaining;
+  const searchLimit = rateLimit.data.resources.search.limit;
+
+  console.log(`Core status: ${coreRemaining}/${coreLimit}`);
+  console.log(`Search status: ${searchRemaining}/${searchLimit}`);
 };

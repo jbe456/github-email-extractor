@@ -15,7 +15,8 @@ import { Cache } from "cache-manager";
 type ExtractOptions = {
   clientId: string;
   clientSecret: string;
-  repos: string[];
+  repos?: string[];
+  query?: string;
   output: string;
   maxEmails: number;
   cacheExpiry: number;
@@ -50,6 +51,12 @@ type ExportOptions = {
   userInfos: UserInfo[];
   maxEmails: number;
   output: string;
+};
+
+type SearchReposOptions = {
+  cache: Cache;
+  octokit: Octokit;
+  query: string;
 };
 
 const extractUsers = async ({
@@ -258,9 +265,7 @@ const repositoryExtract = async ({
   console.log("-----------------------------------------------");
 
   console.log(`Fetching ${owner}/${repo} topics...`);
-  const topics = await cache.wrap(`topics-${owner}-${repo}`, () =>
-    fetchTopics({ cache, octokit, owner, repo })
-  );
+  const topics = await fetchTopics({ cache, octokit, owner, repo });
   console.log(`Topics: ${topics.join(" ")}`);
 
   console.log(`Extracting users from ${owner}/${repo}...`);
@@ -323,6 +328,18 @@ const exportRepoData = ({
   console.log(`Results exported to ${filePath}`);
 };
 
+const searchRepos = async ({ cache, octokit, query }: SearchReposOptions) =>
+  await cache.wrap(`search-repo-${query}`, () =>
+    multiPagePull(async (options) => {
+      const searchResult = await octokit.search.repos({
+        ...options,
+        q: query,
+      });
+
+      return searchResult.data.items.map((item) => item.full_name);
+    })
+  );
+
 export const extract = async ({
   maxEmails,
   output,
@@ -331,6 +348,7 @@ export const extract = async ({
   cacheExpiry,
   cachePath,
   repos,
+  query,
 }: ExtractOptions) => {
   const repoInfos: RepoInfo[] = [];
   const octokit = createOctokit({ clientId, clientSecret });
@@ -339,7 +357,19 @@ export const extract = async ({
     path: cachePath,
   });
 
-  await repos.reduce(async (promise, repoUrl) => {
+  let reposToAnalyze: string[];
+  if (query) {
+    reposToAnalyze = await searchRepos({ cache, octokit, query });
+  } else {
+    reposToAnalyze = repos;
+  }
+
+  console.log("-----------------------------------------------");
+  console.log(`Repositories to analyze                        `);
+  console.log("-----------------------------------------------");
+  console.log(reposToAnalyze.join(`\n`));
+
+  await reposToAnalyze.reduce(async (promise, repoUrl) => {
     await promise;
 
     const [owner, repo] = repoUrl.split("/");
