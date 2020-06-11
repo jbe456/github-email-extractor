@@ -186,6 +186,7 @@ export const extract = async (argv: {
     emailsCount: number;
     usersCount: number;
     emailRate: number;
+    userInfos: { login: string; name: string; emails: string[] }[];
   }[] = [];
 
   await argv.repos.reduce(async (promise, repoUrl) => {
@@ -245,7 +246,7 @@ export const extract = async (argv: {
 
     console.log(`Results exported to ${filePath}`);
 
-    stats.push({ repoUrl, emailsCount, usersCount, emailRate });
+    stats.push({ repoUrl, emailsCount, usersCount, emailRate, userInfos });
   }, Promise.resolve());
 
   console.log("-----------------------------------------------");
@@ -267,12 +268,23 @@ export const extract = async (argv: {
 
   const totalEmailsCount = _.sumBy(stats, "emailsCount");
   const totalUsersCount = _.sumBy(stats, "usersCount");
-  const avgEmailRate = Math.round((totalEmailsCount / totalUsersCount) * 100);
+  table.push(["* TOTAL", totalEmailsCount, totalUsersCount, "-"]);
+
+  const allUserInfos = _.uniqBy(
+    _.flatten(stats.map((stat) => stat.userInfos)),
+    "login"
+  );
+  const uniqueEmailsCount = allUserInfos.filter((u) => u.emails.length > 0)
+    .length;
+  const uniqueUsersCount = allUserInfos.length;
+  const avgUniqueEmailRate = Math.round(
+    (totalEmailsCount / totalUsersCount) * 100
+  );
   table.push([
-    "* TOTAL",
-    totalEmailsCount,
-    totalUsersCount,
-    `${avgEmailRate}%`,
+    "* UNIQUE",
+    uniqueEmailsCount,
+    uniqueUsersCount,
+    `${avgUniqueEmailRate}%`,
   ]);
 
   console.log(table.toString());
