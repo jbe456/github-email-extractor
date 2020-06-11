@@ -3,6 +3,13 @@ import { createOAuthAppAuth } from "@octokit/auth";
 import _ from "lodash";
 import cacheManager, { Cache } from "cache-manager";
 import fsStore from "cache-manager-fs";
+import fs from "fs";
+import path from "path";
+
+type ExportOptions = {
+  content: string;
+  filePath: string;
+};
 
 export const createOctokit = (options: {
   clientId?: string;
@@ -39,7 +46,33 @@ export const multiPagePull = async function <T>(
   return allResults;
 };
 
-export const toCSV = ({
+export const exportRepoData = ({ content, filePath }: ExportOptions) => {
+  const parsedPath = path.parse(filePath);
+
+  if (parsedPath.dir) {
+    fs.mkdir(parsedPath.dir, { recursive: true }, (err) => {
+      if (err) throw err;
+    });
+  }
+
+  fs.writeFileSync(filePath, content);
+};
+
+export const getCSVHeaders = ({ maxEmails }: { maxEmails: number }) => {
+  const emailHeaders = Array.from(Array(maxEmails).keys()).map(
+    (k) => `email-${k}`
+  );
+  return [
+    "owner",
+    "repo",
+    "username",
+    "name",
+    emailHeaders.join(","),
+    "topics",
+  ].join(",");
+};
+
+export const toCSVContent = ({
   owner,
   repo,
   topics,
@@ -52,19 +85,6 @@ export const toCSV = ({
   userInfos: { login: string; name: string; emails: string[] }[];
   maxEmails: number;
 }) => {
-  const emailHeaders = Array.from(Array(maxEmails).keys()).map(
-    (k) => `email-${k}`
-  );
-
-  const headers = [
-    "owner",
-    "repo",
-    "username",
-    "name",
-    emailHeaders.join(","),
-    "topics",
-  ].join(",");
-
   const content = userInfos
     .map((u) =>
       [
@@ -72,7 +92,7 @@ export const toCSV = ({
         repo,
         u.login,
         u.name,
-        emailHeaders
+        Array.from(Array(maxEmails).keys())
           .map((e, k) => (k < u.emails.length ? u.emails[k] : undefined))
           .join(","),
         topics.join(" "),
@@ -80,7 +100,7 @@ export const toCSV = ({
     )
     .join(`\n`);
 
-  return `${headers}\n${content}`;
+  return content;
 };
 
 export const sortByOccurence = (array: string[]) =>

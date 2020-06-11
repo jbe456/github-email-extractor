@@ -1,12 +1,13 @@
 import {
   createOctokit,
   multiPagePull,
-  toCSV,
   sortByOccurence,
   setupCache,
+  exportRepoData,
+  toCSVContent,
+  getCSVHeaders,
 } from "./utils";
 import { Octokit } from "@octokit/rest";
-import fs from "fs";
 import path from "path";
 import _ from "lodash";
 import Table from "cli-table";
@@ -44,14 +45,7 @@ type RepoInfo = {
   topics: string[];
 };
 
-type ExportOptions = {
-  owner: string;
-  repo: string;
-  topics: string[];
-  userInfos: UserInfo[];
-  maxEmails: number;
-  output: string;
-};
+type RepoInfoAndExport = RepoInfo & { csvContent: string };
 
 type SearchReposOptions = {
   cache: Cache;
@@ -299,35 +293,6 @@ const repositoryExtract = async ({
   return { owner, repo, emailsCount, usersCount, emailRate, userInfos, topics };
 };
 
-const exportRepoData = ({
-  owner,
-  repo,
-  topics,
-  userInfos,
-  maxEmails,
-  output,
-}: ExportOptions) => {
-  const csv = toCSV({
-    owner,
-    repo,
-    topics,
-    userInfos,
-    maxEmails,
-  });
-
-  const folderPath = path.join(
-    ...[process.cwd(), output].filter((x) => x !== undefined)
-  );
-  fs.mkdir(folderPath, { recursive: true }, (err) => {
-    if (err) throw err;
-  });
-
-  const filePath = path.join(folderPath, `${owner}-${repo}.csv`);
-  fs.writeFileSync(filePath, csv);
-
-  console.log(`Results exported to ${filePath}`);
-};
-
 const searchRepos = async ({ cache, octokit, query }: SearchReposOptions) =>
   await cache.wrap(`search-repo-${query}`, () =>
     multiPagePull(async (options) => {
@@ -350,12 +315,14 @@ export const extract = async ({
   repos,
   query,
 }: ExtractOptions) => {
-  const repoInfos: RepoInfo[] = [];
+  const repoInfos: RepoInfoAndExport[] = [];
   const octokit = createOctokit({ clientId, clientSecret });
   const cache = await setupCache({
     days: cacheExpiry,
     path: cachePath,
   });
+
+  const exportIntoOneFile = output && path.parse(output).ext !== "";
 
   let reposToAnalyze: string[];
   if (query) {
@@ -382,21 +349,47 @@ export const extract = async ({
       output,
     });
 
-    exportRepoData({
+    const csvContent = toCSVContent({
       owner,
       repo,
       topics: repoInfo.topics,
       userInfos: repoInfo.userInfos,
       maxEmails,
-      output,
     });
 
-    repoInfos.push(repoInfo);
+    if (!exportIntoOneFile) {
+      const csvHeaders = getCSVHeaders({ maxEmails });
+
+      const fileName = `${owner}-${repo}.csv`;
+      const filePath =
+        output !== undefined ? path.join(output, fileName) : fileName;
+
+      exportRepoData({
+        content: `${csvHeaders}\n${csvContent}`,
+        filePath,
+      });
+
+      console.log(`Results exported to ${filePath}`);
+    }
+
+    repoInfos.push({ ...repoInfo, csvContent });
   }, Promise.resolve());
 
   console.log("-----------------------------------------------");
   console.log("                    SUMMARY                    ");
   console.log("-----------------------------------------------");
+
+  if (exportIntoOneFile) {
+    const csvHeaders = getCSVHeaders({ maxEmails });
+    exportRepoData({
+      content: `${csvHeaders}\n${repoInfos
+        .map((info) => info.csvContent)
+        .join("\n")}`,
+      filePath: output,
+    });
+
+    console.log(`Results exported to ${output}`);
+  }
 
   const table = new Table({
     head: ["repo", "emails", "users", "rate"],
