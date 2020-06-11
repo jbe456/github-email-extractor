@@ -172,6 +172,18 @@ const getUserInfos = async ({
   return userInfos;
 };
 
+const fetchTopics = async (options: {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+}) => {
+  const topicsResult = await options.octokit.repos.getAllTopics({
+    owner: options.owner,
+    repo: options.repo,
+  });
+  return topicsResult.data.names;
+};
+
 export const extract = async (argv: {
   clientId: string;
   clientSecret: string;
@@ -197,6 +209,10 @@ export const extract = async (argv: {
     console.log("-----------------------------------------------");
     console.log(`* ${owner}/${repo}                             `);
     console.log("-----------------------------------------------");
+
+    console.log(`Fetching ${owner}/${repo} topics...`);
+    const topics = await fetchTopics({ octokit, owner, repo });
+    console.log(`Topics: ${topics.join(" ")}`);
 
     console.log(`Extracting users from ${owner}/${repo}...`);
 
@@ -230,6 +246,7 @@ export const extract = async (argv: {
     const csv = toCSV({
       owner,
       repo,
+      topics,
       userInfos,
       maxEmails: argv.maxEmails,
     });

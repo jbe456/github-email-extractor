@@ -40,11 +40,13 @@ export const multiPagePull = async function <T>(
 export const toCSV = ({
   owner,
   repo,
+  topics,
   userInfos,
   maxEmails,
 }: {
   owner: string;
   repo: string;
+  topics: string[];
   userInfos: { login: string; name: string; emails: string[] }[];
   maxEmails: number;
 }) => {
@@ -57,8 +59,9 @@ export const toCSV = ({
     "repo",
     "username",
     "name",
-    emailHeaders.join(", "),
-  ].join(", ");
+    emailHeaders.join(","),
+    "topics",
+  ].join(",");
 
   const content = userInfos
     .map((u) =>
@@ -69,8 +72,9 @@ export const toCSV = ({
         u.name,
         emailHeaders
           .map((e, k) => (k < u.emails.length ? u.emails[k] : undefined))
-          .join(", "),
-      ].join(", ")
+          .join(","),
+        topics.join(" "),
+      ].join(",")
     )
     .join(`\n`);
 
