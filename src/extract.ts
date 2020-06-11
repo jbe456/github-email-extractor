@@ -3,144 +3,122 @@ import { Octokit } from "@octokit/rest";
 import fs from "fs";
 import path from "path";
 import _ from "lodash";
+import { callbackify } from "util";
 
 const extractUsers = async ({
   octokit,
   owner,
   repo,
+  callback,
 }: {
   octokit: Octokit;
   owner: string;
   repo: string;
+  callback: (options: {
+    step: string;
+    resultCount: number;
+    newUsers: number;
+  }) => void;
 }) => {
-  console.log(`Fetching users from ${owner}/${repo}...`);
-
-  let users = [];
+  let users: string[] = [];
   let userCount = 0;
 
-  // Owner
-  users.push(owner);
-  console.log(`Found 1 owner.`);
-  userCount = users.length;
+  const steps = [
+    { type: "owner", exec: () => [owner] },
+    {
+      type: "stargazer(s)",
+      exec: () =>
+        multiPagePull(async (options) => {
+          const stargazersResult = await octokit.activity.listStargazersForRepo(
+            {
+              ...options,
+              owner,
+              repo,
+            }
+          );
 
-  // Stargazers
-  const stargazers = await multiPagePull(async (options) => {
-    const stargazersResult = await octokit.activity.listStargazersForRepo({
-      ...options,
-      owner,
-      repo,
-    });
+          return (stargazersResult.data as any).map(
+            (s: { login: string }) => s.login
+          ) as string[];
+        }),
+    },
+    {
+      type: "watcher(s)",
+      exec: () =>
+        multiPagePull(async (options) => {
+          const watchersResult = await octokit.activity.listWatchersForRepo({
+            ...options,
+            owner,
+            repo,
+          });
 
-    return (stargazersResult.data as any).map(
-      (s: { login: string }) => s.login
-    ) as string[];
-  });
+          return watchersResult.data.map((w) => w.login);
+        }),
+    },
+    {
+      type: "fork owner(s)",
+      exec: () =>
+        multiPagePull(async (options) => {
+          const forksResult = await octokit.repos.listForks({
+            ...options,
+            owner,
+            repo,
+          });
 
-  users.push(...stargazers);
-  console.log(
-    `Found ${stargazers.length} stargazers and ${
-      users.length - userCount
-    } additional users.`
+          return forksResult.data.map((w) => w.owner.login);
+        }).then((results) => _.uniq(results)),
+    },
+    {
+      type: "issue reporter(s) and assignee(s)",
+      exec: () =>
+        multiPagePull(async (options) => {
+          const forksResult = await octokit.issues.listForRepo({
+            ...options,
+            owner,
+            repo,
+          });
+
+          return forksResult.data.map((w) => ({
+            reporter: w.user.login,
+            assignees: w.assignees.map((a) => a.login),
+          }));
+        }).then((results) => {
+          const reporters = results.map((i) => i.reporter);
+          const assignees = _.flattenDeep(results.map((i) => i.assignees));
+
+          return _.uniq([...reporters, ...assignees]);
+        }),
+    },
+    {
+      type: "issue commenter(s)",
+      exec: () =>
+        multiPagePull(async (options) => {
+          const commentsResult = await octokit.issues.listCommentsForRepo({
+            ...options,
+            owner,
+            repo,
+          });
+
+          return commentsResult.data.map((c) => c.user.login);
+        }).then((results) => _.uniq(results)),
+    },
+  ];
+
+  await Promise.all(
+    steps.map(async (step) => {
+      const result = await step.exec();
+
+      users.push(...result);
+      users = _.uniq(users);
+
+      callback({
+        step: step.type,
+        resultCount: result.length,
+        newUsers: users.length - userCount,
+      });
+      userCount = users.length;
+    })
   );
-  userCount = users.length;
-
-  // Watchers
-  const watchers = await multiPagePull(async (options) => {
-    const watchersResult = await octokit.activity.listWatchersForRepo({
-      ...options,
-      owner,
-      repo,
-    });
-
-    return watchersResult.data.map((w) => w.login);
-  });
-
-  users.push(...watchers);
-  users = _.uniq(users);
-  console.log(
-    `Found ${watchers.length} watchers and ${
-      users.length - userCount
-    } additional users.`
-  );
-  userCount = users.length;
-
-  // Forks
-  const forkOwners = await multiPagePull(async (options) => {
-    const forksResult = await octokit.repos.listForks({
-      ...options,
-      owner,
-      repo,
-    });
-
-    return forksResult.data.map((w) => w.owner.login);
-  });
-  const uniqueForkOwners = _.uniq(forkOwners);
-
-  users.push(...uniqueForkOwners);
-  users = _.uniq(users);
-  console.log(
-    `Found ${uniqueForkOwners.length} fork owners and ${
-      users.length - userCount
-    } additional users.`
-  );
-  userCount = users.length;
-
-  // Issues reporters and assignees
-  const issueUsers = await multiPagePull(async (options) => {
-    const forksResult = await octokit.issues.listForRepo({
-      ...options,
-      owner,
-      repo,
-    });
-
-    return forksResult.data.map((w) => ({
-      reporter: w.user.login,
-      assignees: w.assignees.map((a) => a.login),
-    }));
-  });
-  const uniqueIssueReporters = _.uniq(issueUsers.map((i) => i.reporter));
-  const uniqueIssueAssignees = _.uniq(
-    _.flattenDeep(issueUsers.map((i) => i.assignees))
-  );
-
-  users.push(...uniqueIssueReporters);
-  users = _.uniq(users);
-  console.log(
-    `Found ${uniqueIssueReporters.length} issue reporters and ${
-      users.length - userCount
-    } additional users.`
-  );
-  userCount = users.length;
-
-  users.push(...uniqueIssueAssignees);
-  users = _.uniq(users);
-  console.log(
-    `Found ${uniqueIssueAssignees.length} issue assignees and ${
-      users.length - userCount
-    } additional users.`
-  );
-  userCount = users.length;
-
-  // Issues commenters
-  const issueCommenters = await multiPagePull(async (options) => {
-    const commentsResult = await octokit.issues.listCommentsForRepo({
-      ...options,
-      owner,
-      repo,
-    });
-
-    return commentsResult.data.map((c) => c.user.login);
-  });
-  const uniqueIssueCommenters = _.uniq(issueCommenters);
-
-  users.push(...uniqueIssueCommenters);
-  users = _.uniq(users);
-  console.log(
-    `Found ${uniqueIssueCommenters.length} issue commenters and ${
-      users.length - userCount
-    } additional users.`
-  );
-  userCount = users.length;
 
   return users;
 };
@@ -201,17 +179,33 @@ export const extract = async (argv: {
   const octokit = createOctokit(argv);
   const [owner, repo] = argv.repo.split("/");
 
-  const users = await extractUsers({ ...argv, octokit, owner, repo });
+  console.log(`Extracting users from ${owner}/${repo}...`);
 
-  console.log(`Found ${users.length} total users. Fetching user infos...`);
+  const users = await extractUsers({
+    ...argv,
+    octokit,
+    owner,
+    repo,
+    callback: ({ resultCount, step, newUsers }) => {
+      console.log(
+        `- Found ${resultCount} ${step} and ${newUsers} additional user(s).`
+      );
+    },
+  });
+
+  const usersCount = users.length;
+  console.log(`Extracted ${usersCount} users total.`);
+  console.log(`Extracting user infos...`);
 
   const userInfos = await getUserInfos({
     octokit,
     users: users,
   });
 
+  const emailsCount = userInfos.filter((u) => u.emails.length > 0).length;
+  const emailRate = Math.round((emailsCount / usersCount) * 100);
   console.log(
-    `Found ${userInfos.filter((u) => u.emails.length > 0).length} emails.`
+    `Extracted ${emailsCount}/${usersCount} emails (~${emailRate}%).`
   );
 
   const csv = toCSV({
@@ -222,5 +216,5 @@ export const extract = async (argv: {
   const filePath = path.join(process.cwd(), `${owner}-${repo}.csv`);
   fs.writeFileSync(filePath, csv);
 
-  console.log(`Exported results to ${filePath}.`);
+  console.log(`Results exported to ${filePath}`);
 };
