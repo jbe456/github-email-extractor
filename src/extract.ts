@@ -3,7 +3,7 @@ import { Octokit } from "@octokit/rest";
 import fs from "fs";
 import path from "path";
 import _ from "lodash";
-import { callbackify } from "util";
+import Table from "cli-table";
 
 const extractUsers = async ({
   octokit,
@@ -182,6 +182,10 @@ export const extract = async (argv: {
   const octokit = createOctokit(argv);
   const [owner, repo] = argv.repo.split("/");
 
+  console.log("-----------------------------------------------");
+  console.log(`* ${owner}/${repo}                             `);
+  console.log("-----------------------------------------------");
+
   console.log(`Extracting users from ${owner}/${repo}...`);
 
   const users = await extractUsers({
@@ -207,9 +211,7 @@ export const extract = async (argv: {
 
   const emailsCount = userInfos.filter((u) => u.emails.length > 0).length;
   const emailRate = Math.round((emailsCount / usersCount) * 100);
-  console.log(
-    `Extracted ${emailsCount}/${usersCount} emails (~${emailRate}%).`
-  );
+  console.log(`Extracted ${emailsCount}/${usersCount} emails (${emailRate}%).`);
 
   const csv = toCSV({
     owner,
@@ -229,4 +231,16 @@ export const extract = async (argv: {
   fs.writeFileSync(filePath, csv);
 
   console.log(`Results exported to ${filePath}`);
+
+  console.log("-----------------------------------------------");
+  console.log("                    SUMMARY                    ");
+  console.log("-----------------------------------------------");
+
+  const table = new Table({
+    head: ["repo", "emails", "users", "rate"],
+  });
+
+  table.push([`${owner}/${repo}`, emailsCount, usersCount, `${emailRate}%`]);
+
+  console.log(table.toString());
 };

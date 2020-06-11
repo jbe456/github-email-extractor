@@ -7,7 +7,9 @@
   "dependencies": {
     "@octokit/auth": "^2.0.0",
     "@octokit/rest": "^17.11.0",
+    "@types/cli-table": "^0.3.0",
     "@types/lodash": "^4.14.155",
+    "cli-table": "^0.3.1",
     "lodash": "^4.17.15",
     "yargs": "^15.3.1"
   },
