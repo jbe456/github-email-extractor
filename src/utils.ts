@@ -41,12 +41,13 @@ export const toCSV = ({
   owner,
   repo,
   userInfos,
+  maxEmails,
 }: {
   owner: string;
   repo: string;
   userInfos: { login: string; name: string; emails: string[] }[];
+  maxEmails: number;
 }) => {
-  const maxEmails = _.max(userInfos.map((u) => u.emails.length));
   const emailHeaders = Array.from(Array(maxEmails).keys()).map(
     (k) => `email-${k}`
   );
@@ -75,3 +76,10 @@ export const toCSV = ({
 
   return `${headers}\n${content}`;
 };
+
+export const sortByOccurence = (array: string[]) =>
+  _.orderBy(
+    _.map(_.countBy(array), (value, key) => ({ key, value })),
+    "value",
+    "desc"
+  ).map((element) => element.key);

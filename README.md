@@ -46,4 +46,6 @@ Options:
   --repo          Repository to extract emails from          [string] [required]
   --output        Destination folder where CSV results are exported, relative or
                   absolute path                                         [string]
+  --maxEmails     Maximum number of emails to extract per Github user.
+                                                           [number] [default: 3]
 ```

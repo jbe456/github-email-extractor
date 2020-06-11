@@ -1,4 +1,4 @@
-import { createOctokit, multiPagePull, toCSV } from "./utils";
+import { createOctokit, multiPagePull, toCSV, sortByOccurence } from "./utils";
 import { Octokit } from "@octokit/rest";
 import fs from "fs";
 import path from "path";
@@ -152,12 +152,13 @@ const getUserInfos = async ({
           return watchersResult.data.filter((e: any) => e.type === "PushEvent");
         });
 
-        const extraEmails = _.uniq(
-          (_.flattenDeep(
-            pushEvents.map((e: any) =>
-              e.payload.commits.map((c: any) => c.author.email)
-            )
-          ) as string[]).filter((x) => !x.includes("noreply"))
+        const emailsFromPushEvents = _.flattenDeep(
+          pushEvents.map((e: any) =>
+            e.payload.commits.map((c: any) => c.author.email)
+          )
+        );
+        const extraEmails = sortByOccurence(
+          emailsFromPushEvents.filter((x) => !x.includes("noreply"))
         );
 
         return {
@@ -176,6 +177,7 @@ export const extract = async (argv: {
   clientSecret: string;
   repo: string;
   output: string;
+  maxEmails: number;
 }) => {
   const octokit = createOctokit(argv);
   const [owner, repo] = argv.repo.split("/");
@@ -213,6 +215,7 @@ export const extract = async (argv: {
     owner,
     repo,
     userInfos,
+    maxEmails: argv.maxEmails,
   });
 
   const folderPath = path.join(

@@ -42,6 +42,11 @@ yargs
           type: "string",
           description:
             "Destination folder where CSV results are exported, relative or absolute path",
+        })
+        .option("maxEmails", {
+          type: "number",
+          default: 3,
+          description: "Maximum number of emails to extract per Github user.",
         });
     },
     extract
