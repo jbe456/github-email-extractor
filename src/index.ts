@@ -46,8 +46,18 @@ yargs
         })
         .option("maxEmails", {
           type: "number",
-          default: 3,
+          default: 2,
           description: "Maximum number of emails to extract per Github user.",
+        })
+        .option("cacheExpiry", {
+          type: "number",
+          default: 31,
+          description: "Number of days before cache entities expire.",
+        })
+        .option("cachePath", {
+          type: "number",
+          default: "gee-cache",
+          description: "Path to the cache folder.",
         });
     },
     extract

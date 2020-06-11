@@ -48,5 +48,8 @@ Options:
   --output        Destination folder where CSV results are exported, relative or
                   absolute path                                         [string]
   --maxEmails     Maximum number of emails to extract per Github user.
-                                                           [number] [default: 3]
+                                                           [number] [default: 2]
+  --cacheExpiry   Number of days before cache entities expire.
+                                                          [number] [default: 31]
+  --cachePath     Path to the cache folder.      [number] [default: "gee-cache"]
 ```

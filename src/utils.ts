@@ -1,6 +1,8 @@
 import { Octokit } from "@octokit/rest";
 import { createOAuthAppAuth } from "@octokit/auth";
 import _ from "lodash";
+import cacheManager, { Cache } from "cache-manager";
+import fsStore from "cache-manager-fs";
 
 export const createOctokit = (options: {
   clientId?: string;
@@ -87,3 +89,24 @@ export const sortByOccurence = (array: string[]) =>
     "value",
     "desc"
   ).map((element) => element.key);
+
+export const setupCache = async ({
+  days,
+  path,
+}: {
+  days: number;
+  path: string;
+}): Promise<Cache> => {
+  return new Promise((resolve) => {
+    const cache = cacheManager.caching({
+      store: fsStore,
+      ttl: days * 24 * 60 * 60 /* days in seconds */,
+      maxsize: 1000 * 1000 * 1000 /* 1GB max size in bytes on disk */,
+      path,
+      zip: false,
+      fillcallback: () => {
+        resolve(cache);
+      },
+    });
+  });
+};

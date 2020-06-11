@@ -7,8 +7,11 @@
   "dependencies": {
     "@octokit/auth": "^2.0.0",
     "@octokit/rest": "^17.11.0",
+    "@types/cache-manager": "^2.10.3",
     "@types/cli-table": "^0.3.0",
     "@types/lodash": "^4.14.155",
+    "cache-manager": "^3.3.0",
+    "cache-manager-fs": "^1.0.8",
     "cli-table": "^0.3.1",
     "lodash": "^4.17.15",
     "yargs": "^15.3.1"

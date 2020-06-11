@@ -1,16 +1,65 @@
-import { createOctokit, multiPagePull, toCSV, sortByOccurence } from "./utils";
+import {
+  createOctokit,
+  multiPagePull,
+  toCSV,
+  sortByOccurence,
+  setupCache,
+} from "./utils";
 import { Octokit } from "@octokit/rest";
 import fs from "fs";
 import path from "path";
 import _ from "lodash";
 import Table from "cli-table";
+import { Cache } from "cache-manager";
+
+type ExtractOptions = {
+  clientId: string;
+  clientSecret: string;
+  repos: string[];
+  output: string;
+  maxEmails: number;
+  cacheExpiry: number;
+  cachePath: string;
+};
+
+type RepositoryExtractOptions = {
+  cache: Cache;
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  maxEmails: number;
+  output: string;
+};
+
+type UserInfo = { login: string; name: string; emails: string[] };
+
+type RepoInfo = {
+  repo: string;
+  owner: string;
+  emailsCount: number;
+  usersCount: number;
+  emailRate: number;
+  userInfos: UserInfo[];
+  topics: string[];
+};
+
+type ExportOptions = {
+  owner: string;
+  repo: string;
+  topics: string[];
+  userInfos: UserInfo[];
+  maxEmails: number;
+  output: string;
+};
 
 const extractUsers = async ({
+  cache,
   octokit,
   owner,
   repo,
   callback,
 }: {
+  cache: Cache;
   octokit: Octokit;
   owner: string;
   repo: string;
@@ -106,7 +155,9 @@ const extractUsers = async ({
 
   await Promise.all(
     steps.map(async (step) => {
-      const result = await step.exec();
+      const result = await cache.wrap(`${step.type}-${owner}-${repo}`, () =>
+        step.exec()
+      );
 
       users.push(...result);
       users = _.uniq(users);
@@ -124,15 +175,21 @@ const extractUsers = async ({
 };
 
 const getUserInfos = async ({
+  cache,
   octokit,
   users,
 }: {
+  cache: Cache;
   octokit: Octokit;
   users: string[];
 }) => {
   const githubUserInfos = (
     await Promise.all(
-      users.map((user) => octokit.users.getByUsername({ username: user }))
+      users.map((user) =>
+        cache.wrap(`info-${user}`, () =>
+          octokit.users.getByUsername({ username: user })
+        )
+      )
     )
   ).map((u) => u.data);
 
@@ -141,21 +198,25 @@ const getUserInfos = async ({
       if (u.email) {
         return { ...u, emails: [u.email] };
       } else {
-        const pushEvents = await multiPagePull(async (options) => {
-          const watchersResult = await octokit.activity.listPublicEventsForUser(
-            {
-              ...options,
-              username: u.login,
-            }
-          );
+        const pushEvents: {
+          payload: { commits: { author: { email: string } }[] };
+        }[] = await cache.wrap(`push-events-${u.login}`, () =>
+          multiPagePull(async (options) => {
+            const watchersResult = await octokit.activity.listPublicEventsForUser(
+              {
+                ...options,
+                username: u.login,
+              }
+            );
 
-          return watchersResult.data.filter((e: any) => e.type === "PushEvent");
-        });
+            return watchersResult.data.filter(
+              (e: any) => e.type === "PushEvent"
+            );
+          })
+        );
 
         const emailsFromPushEvents = _.flattenDeep(
-          pushEvents.map((e: any) =>
-            e.payload.commits.map((c: any) => c.author.email)
-          )
+          pushEvents.map((e) => e.payload.commits.map((c) => c.author.email))
         );
         const extraEmails = sortByOccurence(
           emailsFromPushEvents.filter((x) => !x.includes("noreply"))
@@ -173,97 +234,134 @@ const getUserInfos = async ({
 };
 
 const fetchTopics = async (options: {
+  cache: Cache;
   octokit: Octokit;
   owner: string;
   repo: string;
-}) => {
-  const topicsResult = await options.octokit.repos.getAllTopics({
-    owner: options.owner,
-    repo: options.repo,
+}) =>
+  options.cache.wrap(`topics-${options.owner}-${options.repo}`, async () => {
+    const topicsResult = await options.octokit.repos.getAllTopics({
+      owner: options.owner,
+      repo: options.repo,
+    });
+    return topicsResult.data.names;
   });
-  return topicsResult.data.names;
+
+const repositoryExtract = async ({
+  cache,
+  octokit,
+  owner,
+  repo,
+}: RepositoryExtractOptions): Promise<RepoInfo> => {
+  console.log("-----------------------------------------------");
+  console.log(`* ${owner}/${repo}                             `);
+  console.log("-----------------------------------------------");
+
+  console.log(`Fetching ${owner}/${repo} topics...`);
+  const topics = await cache.wrap(`topics-${owner}-${repo}`, () =>
+    fetchTopics({ cache, octokit, owner, repo })
+  );
+  console.log(`Topics: ${topics.join(" ")}`);
+
+  console.log(`Extracting users from ${owner}/${repo}...`);
+
+  const users = await extractUsers({
+    cache,
+    octokit,
+    owner,
+    repo,
+    callback: ({ resultCount, step, newUsers }) => {
+      console.log(
+        `- Found ${resultCount} ${step} and ${newUsers} additional user(s).`
+      );
+    },
+  });
+
+  const usersCount = users.length;
+  console.log(`Extracted ${usersCount} users total.`);
+  console.log(`Extracting user infos...`);
+
+  const userInfos = await getUserInfos({
+    cache,
+    octokit,
+    users: users,
+  });
+
+  const emailsCount = userInfos.filter((u) => u.emails.length > 0).length;
+  const emailRate = Math.round((emailsCount / usersCount) * 100);
+  console.log(`Extracted ${emailsCount}/${usersCount} emails (${emailRate}%).`);
+
+  return { owner, repo, emailsCount, usersCount, emailRate, userInfos, topics };
 };
 
-export const extract = async (argv: {
-  clientId: string;
-  clientSecret: string;
-  repos: string[];
-  output: string;
-  maxEmails: number;
-}) => {
-  const octokit = createOctokit(argv);
+const exportRepoData = ({
+  owner,
+  repo,
+  topics,
+  userInfos,
+  maxEmails,
+  output,
+}: ExportOptions) => {
+  const csv = toCSV({
+    owner,
+    repo,
+    topics,
+    userInfos,
+    maxEmails,
+  });
 
-  const stats: {
-    repoUrl: string;
-    emailsCount: number;
-    usersCount: number;
-    emailRate: number;
-    userInfos: { login: string; name: string; emails: string[] }[];
-  }[] = [];
+  const folderPath = path.join(
+    ...[process.cwd(), output].filter((x) => x !== undefined)
+  );
+  fs.mkdir(folderPath, { recursive: true }, (err) => {
+    if (err) throw err;
+  });
 
-  await argv.repos.reduce(async (promise, repoUrl) => {
+  const filePath = path.join(folderPath, `${owner}-${repo}.csv`);
+  fs.writeFileSync(filePath, csv);
+
+  console.log(`Results exported to ${filePath}`);
+};
+
+export const extract = async ({
+  maxEmails,
+  output,
+  clientId,
+  clientSecret,
+  cacheExpiry,
+  cachePath,
+  repos,
+}: ExtractOptions) => {
+  const repoInfos: RepoInfo[] = [];
+  const octokit = createOctokit({ clientId, clientSecret });
+  const cache = await setupCache({
+    days: cacheExpiry,
+    path: cachePath,
+  });
+
+  await repos.reduce(async (promise, repoUrl) => {
     await promise;
 
     const [owner, repo] = repoUrl.split("/");
-
-    console.log("-----------------------------------------------");
-    console.log(`* ${owner}/${repo}                             `);
-    console.log("-----------------------------------------------");
-
-    console.log(`Fetching ${owner}/${repo} topics...`);
-    const topics = await fetchTopics({ octokit, owner, repo });
-    console.log(`Topics: ${topics.join(" ")}`);
-
-    console.log(`Extracting users from ${owner}/${repo}...`);
-
-    const users = await extractUsers({
-      ...argv,
+    const repoInfo = await repositoryExtract({
+      cache,
       octokit,
+      repo,
+      owner,
+      maxEmails,
+      output,
+    });
+
+    exportRepoData({
       owner,
       repo,
-      callback: ({ resultCount, step, newUsers }) => {
-        console.log(
-          `- Found ${resultCount} ${step} and ${newUsers} additional user(s).`
-        );
-      },
+      topics: repoInfo.topics,
+      userInfos: repoInfo.userInfos,
+      maxEmails,
+      output,
     });
 
-    const usersCount = users.length;
-    console.log(`Extracted ${usersCount} users total.`);
-    console.log(`Extracting user infos...`);
-
-    const userInfos = await getUserInfos({
-      octokit,
-      users: users,
-    });
-
-    const emailsCount = userInfos.filter((u) => u.emails.length > 0).length;
-    const emailRate = Math.round((emailsCount / usersCount) * 100);
-    console.log(
-      `Extracted ${emailsCount}/${usersCount} emails (${emailRate}%).`
-    );
-
-    const csv = toCSV({
-      owner,
-      repo,
-      topics,
-      userInfos,
-      maxEmails: argv.maxEmails,
-    });
-
-    const folderPath = path.join(
-      ...[process.cwd(), argv.output].filter((x) => x !== undefined)
-    );
-    fs.mkdir(folderPath, { recursive: true }, (err) => {
-      if (err) throw err;
-    });
-
-    const filePath = path.join(folderPath, `${owner}-${repo}.csv`);
-    fs.writeFileSync(filePath, csv);
-
-    console.log(`Results exported to ${filePath}`);
-
-    stats.push({ repoUrl, emailsCount, usersCount, emailRate, userInfos });
+    repoInfos.push(repoInfo);
   }, Promise.resolve());
 
   console.log("-----------------------------------------------");
@@ -274,21 +372,21 @@ export const extract = async (argv: {
     head: ["repo", "emails", "users", "rate"],
   });
 
-  stats.forEach((stat) => {
+  repoInfos.forEach((stat) => {
     table.push([
-      stat.repoUrl,
+      `${stat.owner}/${stat.repo}`,
       stat.emailsCount,
       stat.usersCount,
       `${stat.emailRate}%`,
     ]);
   });
 
-  const totalEmailsCount = _.sumBy(stats, "emailsCount");
-  const totalUsersCount = _.sumBy(stats, "usersCount");
+  const totalEmailsCount = _.sumBy(repoInfos, "emailsCount");
+  const totalUsersCount = _.sumBy(repoInfos, "usersCount");
   table.push(["* TOTAL", totalEmailsCount, totalUsersCount, "-"]);
 
   const allUserInfos = _.uniqBy(
-    _.flatten(stats.map((stat) => stat.userInfos)),
+    _.flatten(repoInfos.map((stat) => stat.userInfos)),
     "login"
   );
   const uniqueEmailsCount = allUserInfos.filter((u) => u.emails.length > 0)
