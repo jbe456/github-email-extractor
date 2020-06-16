@@ -1,19 +1,27 @@
 import { OctokitResponse, RateLimitGetResponseData } from "@octokit/types";
 import Table from "cli-table";
 import _ from "lodash";
-import { RepoInfoAndExport } from "./utils";
+import { RepoInfoAndExport, utcToTimeString } from "./utils";
 
 export const printStatus = (
   rateLimit: OctokitResponse<RateLimitGetResponseData>
 ) => {
   const coreRemaining = rateLimit.data.resources.core.remaining;
   const coreLimit = rateLimit.data.resources.core.limit;
+  const coreReset = rateLimit.data.resources.core.reset;
 
   const searchRemaining = rateLimit.data.resources.search.remaining;
   const searchLimit = rateLimit.data.resources.search.limit;
+  const searchReset = rateLimit.data.resources.search.reset;
 
-  console.log(`Core status: ${coreRemaining}/${coreLimit}`);
-  console.log(`Search status: ${searchRemaining}/${searchLimit}`);
+  console.log(
+    `Core status: ${coreRemaining}/${coreLimit} - ${utcToTimeString(coreReset)}`
+  );
+  console.log(
+    `Search status: ${searchRemaining}/${searchLimit} - ${utcToTimeString(
+      searchReset
+    )}`
+  );
 };
 
 export const printReposToAnalyse = (reposToAnalyze: string[]) => {

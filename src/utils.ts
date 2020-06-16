@@ -51,6 +51,12 @@ type ExportOptions = {
   filePath: string;
 };
 
+export const utcToTimeString = (utcSeconds: number) => {
+  const date = new Date(0);
+  date.setUTCSeconds(utcSeconds);
+  return date.toLocaleTimeString();
+};
+
 export const createOctokit = (options: {
   clientId?: string;
   clientSecret?: string;
