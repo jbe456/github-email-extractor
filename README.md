@@ -88,3 +88,13 @@ Options:
                                                           [number] [default: 31]
   --cachePath     Path to the cache folder.      [number] [default: "gee-cache"]
 ```
+
+### Troubleshoot
+
+#### Abuse detection mechanism
+
+```
+RequestError [HttpError]: You have triggered an abuse detection mechanism. Please wait a few minutes before you try again.
+```
+
+This error is triggered by Github when too many requests are triggered in a short time. Follow the instruction and wait a few minutes before you try again.
