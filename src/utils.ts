@@ -6,6 +6,46 @@ import fsStore from "cache-manager-fs";
 import fs from "fs";
 import path from "path";
 
+export type ExtractOptions = {
+  clientId: string;
+  clientSecret: string;
+  repos?: string[];
+  query?: string;
+  output: string;
+  maxEmails: number;
+  cacheExpiry: number;
+  cachePath: string;
+};
+
+export type RepositoryExtractOptions = {
+  cache: Cache;
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  maxEmails: number;
+  output: string;
+};
+
+type UserInfo = { login: string; name: string; emails: string[] };
+
+export type RepoInfo = {
+  repo: string;
+  owner: string;
+  emailsCount: number;
+  usersCount: number;
+  emailRate: number;
+  userInfos: UserInfo[];
+  topics: string[];
+};
+
+export type RepoInfoAndExport = RepoInfo & { csvContent: string };
+
+export type SearchReposOptions = {
+  cache: Cache;
+  octokit: Octokit;
+  query: string;
+};
+
 type ExportOptions = {
   content: string;
   filePath: string;

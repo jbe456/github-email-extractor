@@ -6,52 +6,17 @@ import {
   exportRepoData,
   toCSVContent,
   getCSVHeaders,
+  RepositoryExtractOptions,
+  RepoInfo,
+  ExtractOptions,
+  RepoInfoAndExport,
+  SearchReposOptions,
 } from "./utils";
 import { Octokit } from "@octokit/rest";
 import path from "path";
 import _ from "lodash";
-import Table from "cli-table";
 import { Cache } from "cache-manager";
-
-type ExtractOptions = {
-  clientId: string;
-  clientSecret: string;
-  repos?: string[];
-  query?: string;
-  output: string;
-  maxEmails: number;
-  cacheExpiry: number;
-  cachePath: string;
-};
-
-type RepositoryExtractOptions = {
-  cache: Cache;
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  maxEmails: number;
-  output: string;
-};
-
-type UserInfo = { login: string; name: string; emails: string[] };
-
-type RepoInfo = {
-  repo: string;
-  owner: string;
-  emailsCount: number;
-  usersCount: number;
-  emailRate: number;
-  userInfos: UserInfo[];
-  topics: string[];
-};
-
-type RepoInfoAndExport = RepoInfo & { csvContent: string };
-
-type SearchReposOptions = {
-  cache: Cache;
-  octokit: Octokit;
-  query: string;
-};
+import { printExtractSummary, printReposToAnalyse } from "./logging";
 
 const extractUsers = async ({
   cache,
@@ -331,10 +296,7 @@ export const extract = async ({
     reposToAnalyze = repos;
   }
 
-  console.log("-----------------------------------------------");
-  console.log(`Repositories to analyze                        `);
-  console.log("-----------------------------------------------");
-  console.log(reposToAnalyze.join(`\n`));
+  printReposToAnalyse(reposToAnalyze);
 
   await reposToAnalyze.reduce(async (promise, repoUrl) => {
     await promise;
@@ -375,10 +337,6 @@ export const extract = async ({
     repoInfos.push({ ...repoInfo, csvContent });
   }, Promise.resolve());
 
-  console.log("-----------------------------------------------");
-  console.log("                    SUMMARY                    ");
-  console.log("-----------------------------------------------");
-
   if (exportIntoOneFile) {
     const csvHeaders = getCSVHeaders({ maxEmails });
     exportRepoData({
@@ -387,43 +345,7 @@ export const extract = async ({
         .join("\n")}`,
       filePath: output,
     });
-
-    console.log(`Results exported to ${output}`);
   }
 
-  const table = new Table({
-    head: ["repo", "emails", "users", "rate"],
-  });
-
-  repoInfos.forEach((stat) => {
-    table.push([
-      `${stat.owner}/${stat.repo}`,
-      stat.emailsCount,
-      stat.usersCount,
-      `${stat.emailRate}%`,
-    ]);
-  });
-
-  const totalEmailsCount = _.sumBy(repoInfos, "emailsCount");
-  const totalUsersCount = _.sumBy(repoInfos, "usersCount");
-  table.push(["* TOTAL", totalEmailsCount, totalUsersCount, "-"]);
-
-  const allUserInfos = _.uniqBy(
-    _.flatten(repoInfos.map((stat) => stat.userInfos)),
-    "login"
-  );
-  const uniqueEmailsCount = allUserInfos.filter((u) => u.emails.length > 0)
-    .length;
-  const uniqueUsersCount = allUserInfos.length;
-  const avgUniqueEmailRate = Math.round(
-    (totalEmailsCount / totalUsersCount) * 100
-  );
-  table.push([
-    "* UNIQUE",
-    uniqueEmailsCount,
-    uniqueUsersCount,
-    `${avgUniqueEmailRate}%`,
-  ]);
-
-  console.log(table.toString());
+  printExtractSummary({ exportIntoOneFile, output, repoInfos });
 };

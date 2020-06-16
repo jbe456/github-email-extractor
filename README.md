@@ -97,4 +97,12 @@ Options:
 RequestError [HttpError]: You have triggered an abuse detection mechanism. Please wait a few minutes before you try again.
 ```
 
-This error is triggered by Github when too many requests are triggered in a short time. Follow the instruction and wait a few minutes before you try again.
+This error is triggered by Github when too many requests are triggered in a short time period. Check the `retry-after` header to know how many seconds needs to pass before triggering new API requests.
+
+#### API rate limit exceeded
+
+```
+RequestError [HttpError]: API rate limit exceeded for app ID XXXX.
+```
+
+This error is triggered by Github when rate limit has been exceeded. Check the `x-ratelimit-reset` header or use the `status` command to know when the rate limit will be reset.
