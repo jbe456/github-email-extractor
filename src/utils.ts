@@ -72,26 +72,6 @@ export const createOctokit = (options: {
     : new Octokit();
 };
 
-export const multiPagePull = async function <T>(
-  fetch: (options: { page: number; per_page: number }) => Promise<T[]>
-) {
-  const allResults = [];
-  let page = 1;
-  let keepFetching = true;
-
-  while (keepFetching) {
-    const result = await fetch({
-      per_page: 100,
-      page: page,
-    });
-
-    allResults.push(...result);
-    keepFetching = result.length === 100;
-    page++;
-  }
-  return allResults;
-};
-
 export const exportRepoData = ({ content, filePath }: ExportOptions) => {
   const parsedPath = path.parse(filePath);
 

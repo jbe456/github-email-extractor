@@ -1,6 +1,5 @@
 import {
   createOctokit,
-  multiPagePull,
   sortByOccurence,
   setupCache,
   exportRepoData,
@@ -13,6 +12,7 @@ import {
   SearchReposOptions,
 } from "./utils";
 import { Octokit } from "@octokit/rest";
+import { ActivityListStargazersForRepoResponseData } from "@octokit/types";
 import path from "path";
 import _ from "lodash";
 import { Cache } from "cache-manager";
@@ -42,80 +42,79 @@ const extractUsers = async ({
     { type: "owner", exec: () => [owner] },
     {
       type: "stargazer(s)",
-      exec: () =>
-        multiPagePull(async (options) => {
-          const stargazersResult = await octokit.activity.listStargazersForRepo(
-            {
-              ...options,
-              owner,
-              repo,
-            }
-          );
+      exec: async () => {
+        const stargazers = await octokit.paginate(
+          octokit.activity.listStargazersForRepo,
+          {
+            per_page: 100,
+            owner,
+            repo,
+          }
+        );
 
-          return (stargazersResult.data as any).map(
-            (s: { login: string }) => s.login
-          ) as string[];
-        }),
+        return (stargazers as ActivityListStargazersForRepoResponseData).map(
+          (s) => s.login
+        );
+      },
     },
     {
       type: "watcher(s)",
-      exec: () =>
-        multiPagePull(async (options) => {
-          const watchersResult = await octokit.activity.listWatchersForRepo({
-            ...options,
+      exec: async () => {
+        const watchers = await octokit.paginate(
+          octokit.activity.listWatchersForRepo,
+          {
+            per_page: 100,
             owner,
             repo,
-          });
+          }
+        );
 
-          return watchersResult.data.map((w) => w.login);
-        }),
+        return watchers.map((w) => w.login);
+      },
     },
     {
       type: "fork owner(s)",
-      exec: () =>
-        multiPagePull(async (options) => {
-          const forksResult = await octokit.repos.listForks({
-            ...options,
-            owner,
-            repo,
-          });
+      exec: async () => {
+        const forks = await octokit.paginate(octokit.repos.listForks, {
+          per_page: 100,
+          owner,
+          repo,
+        });
 
-          return forksResult.data.map((w) => w.owner.login);
-        }).then((results) => _.uniq(results)),
+        return _.uniq(forks.map((f) => f.owner.login));
+      },
     },
     {
       type: "issue reporter(s) and assignee(s)",
-      exec: () =>
-        multiPagePull(async (options) => {
-          const forksResult = await octokit.issues.listForRepo({
-            ...options,
-            owner,
-            repo,
-          });
+      exec: async () => {
+        const issues = await octokit.paginate(octokit.issues.listForRepo, {
+          per_page: 100,
+          owner,
+          repo,
+        });
 
-          return forksResult.data.map((w) => ({
-            reporter: w.user.login,
-            assignees: w.assignees.map((a) => a.login),
-          }));
-        }).then((results) => {
-          const reporters = results.map((i) => i.reporter);
-          const assignees = _.flattenDeep(results.map((i) => i.assignees));
+        const reporters = issues.map((i) => i.user.login);
+        const assignees = _.flattenDeep(
+          issues.map((i) => i.assignees.map((a) => a.login))
+        );
 
-          return _.uniq([...reporters, ...assignees]);
-        }),
+        return _.uniq([...reporters, ...assignees]);
+      },
     },
     {
       type: "issue commenter(s)",
-      exec: () =>
-        multiPagePull(async (options) => {
-          const commentsResult = await octokit.issues.listCommentsForRepo({
-            ...options,
+      exec: async () => {
+        const comments = await octokit.paginate(
+          octokit.issues.listCommentsForRepo,
+          {
+            per_page: 100,
             owner,
             repo,
-          });
+          }
+        );
 
-          return commentsResult.data.map((c) => c.user.login);
-        }).then((results) => _.uniq(results)),
+        return _.uniq(comments.map((c) => c.user.login));
+      },
     },
   ];
 
@@ -166,20 +165,17 @@ const getUserInfos = async ({
       } else {
         const pushEvents: {
           payload: { commits: { author: { email: string } }[] };
-        }[] = await cache.wrap(`push-events-${u.login}`, () =>
-          multiPagePull(async (options) => {
-            const watchersResult = await octokit.activity.listPublicEventsForUser(
-              {
-                ...options,
-                username: u.login,
-              }
-            );
+        }[] = await cache.wrap(`push-events-${u.login}`, async () => {
+          const events = await octokit.paginate(
+            octokit.activity.listPublicEventsForUser,
+            {
+              per_page: 100,
+              username: u.login,
+            }
+          );
 
-            return watchersResult.data.filter(
-              (e: any) => e.type === "PushEvent"
-            );
-          })
-        );
+          return events.filter((e: any) => e.type === "PushEvent");
+        });
 
         const emailsFromPushEvents = _.flattenDeep(
           pushEvents.map((e) => e.payload.commits.map((c) => c.author.email))
@@ -259,16 +255,14 @@ const repositoryExtract = async ({
 };
 
 const searchRepos = async ({ cache, octokit, query }: SearchReposOptions) =>
-  await cache.wrap(`search-repo-${query}`, () =>
-    multiPagePull(async (options) => {
-      const searchResult = await octokit.search.repos({
-        ...options,
-        q: query,
-      });
+  await cache.wrap(`search-repo-${query}`, async () => {
+    const results = await octokit.paginate(octokit.search.repos, {
+      per_page: 100,
+      q: query,
+    });
 
-      return searchResult.data.items.map((item) => item.full_name);
-    })
-  );
+    return results.items.map((item) => item.full_name);
+  });
 
 export const extract = async ({
   maxEmails,
