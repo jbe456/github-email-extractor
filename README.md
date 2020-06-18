@@ -1,6 +1,6 @@
 ## Github email extractor
 
-Extract Github user emails and names from Github repositories and export them as CSV files.
+Extract Github user emails and names from Github repositories and export them as CSV files. Make sure you've read [Github's terms of service and privacy statement](#github-terms-of-service-and-privacy-statement) before using this tool.
 
 Features:
 
@@ -106,3 +106,29 @@ RequestError [HttpError]: API rate limit exceeded for app ID XXXX.
 ```
 
 This error is triggered by Github when rate limit has been exceeded. Check the `x-ratelimit-reset` header or use the `status` command to know when the rate limit will be reset.
+
+### Github terms of service and privacy statement
+
+From Github's [terms of service](https://help.github.com/en/github/site-policy/github-terms-of-service#h-api-terms):
+
+> API Terms
+>
+> Abuse or excessively frequent requests to GitHub via the API may result in the temporary or permanent suspension of your Account's access to the API. GitHub, in our sole discretion, will determine abuse or excessive usage of the API. We will make a reasonable attempt to warn you via email prior to suspension.
+>
+> You may not share API tokens to exceed GitHub's rate limitations.
+>
+> You may not use the API to download data or Content from GitHub for spamming purposes, including for the purposes of selling GitHub users' personal information, such as to recruiters, headhunters, and job boards.
+>
+> All use of the GitHub API is subject to these Terms of Service and the GitHub Privacy Statement.
+
+From Githubs's [privacy statement](https://help.github.com/en/github/site-policy/github-privacy-statement#public-information-on-github):
+
+> Public information on GitHub
+>
+> Many of GitHub services and features are public-facing. If your content is public-facing, third parties may access and use it in compliance with our Terms of Service, such as by viewing your profile or repositories or pulling data via our API. We do not sell that content; it is yours. However, we do allow third parties, such as research organizations or archives, to compile public-facing GitHub information. Other third parties, such as data brokers, have been known to scrape GitHub and compile data as well.
+>
+> Your User Personal Information associated with your content could be gathered by third parties in these compilations of GitHub data. [...]
+>
+> If you would like to compile GitHub data, you must comply with our Terms of Service regarding scraping and privacy, and you may only use any public-facing User Personal Information you gather for the purpose for which our user authorized it. For example, where a GitHub user has made an email address public-facing for the purpose of identification and attribution, do not use that email address for commercial advertising. We expect you to reasonably secure any User Personal Information you have gathered from GitHub, and to respond promptly to complaints, removal requests, and "do not contact" requests from GitHub or GitHub users.
+>
+> Similarly, projects on GitHub may include publicly available User Personal Information collected as part of the collaborative process. If you have a complaint about any User Personal Information on GitHub, please see our section on resolving complaints.
