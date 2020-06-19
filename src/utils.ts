@@ -23,7 +23,6 @@ export type RepositoryExtractOptions = {
   owner: string;
   repo: string;
   maxEmails: number;
-  output: string;
 };
 
 type UserInfo = { login: string; name: string; emails: string[] };

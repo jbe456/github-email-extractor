@@ -296,7 +296,6 @@ export const extract = async ({
       repo,
       owner,
       maxEmails,
-      output,
     });
 
     const csvContent = toCSVContent({
