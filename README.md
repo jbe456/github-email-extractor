@@ -1,6 +1,6 @@
 ## Github email extractor
 
-Extract Github user emails and names from Github repositories and export them as CSV files. Make sure you've read [Github's terms of service and privacy statement](#github-terms-of-service-and-privacy-statement) before using this tool.
+Extract Github user emails and names from Github repositories and export them into one CSV file. Make sure you've read [Github's terms of service and privacy statement](#github-terms-of-service-and-privacy-statement) before using this tool.
 
 Features:
 
@@ -38,13 +38,12 @@ Examples:
   gee extract --clientId XX --clientSecret  Extract user names & emails from a
   YY --repos ownerA/repoA                   single repository
   gee extract --clientId XX --clientSecret  Extract user names & emails from
-  YY --repos ownerA/repoA ownerB/repoB      multiple repositories and export all
+  YY --repos ownerA/repoA ownerB/repoB      multiple repositories and export
   --output ZZ                               results under specified folder
   gee extract --clientId XX --clientSecret  Extract user names & emails from
   YY --query 'topic:analysis                repositories whose topic and
   language:python' --output                 language matches the query and
-  analysis-python.csv                       export all results into one file
-
+  analysis-python.csv                       export results specified file
 ```
 
 #### status
@@ -79,9 +78,8 @@ Options:
                                                                          [array]
   --query         A Github search query to select repositories to extract emails
                   from                                                  [string]
-  --output        Destination folder where CSV results are exported, relative or
-                  absolute path. If a output points to a file, will export all
-                  results to one file only                              [string]
+  --output        Destination folder or file where CSV results are exported,
+                  relative or absolute path                             [string]
   --maxEmails     Maximum number of emails to extract per Github user.
                                                            [number] [default: 2]
   --cacheExpiry   Number of days before cache entities expire.

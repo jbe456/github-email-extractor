@@ -18,11 +18,11 @@ yargs
   )
   .example(
     "$0 extract --clientId XX --clientSecret YY --repos ownerA/repoA ownerB/repoB --output ZZ",
-    "Extract user names & emails from multiple repositories and export all results under specified folder"
+    "Extract user names & emails from multiple repositories and export results under specified folder"
   )
   .example(
     "$0 extract --clientId XX --clientSecret YY --query 'topic:analysis language:python' --output analysis-python.csv",
-    "Extract user names & emails from repositories whose topic and language matches the query and export all results into one file"
+    "Extract user names & emails from repositories whose topic and language matches the query and export results specified file"
   )
   .option("clientId", {
     description: "Github app client id",
@@ -60,7 +60,7 @@ yargs
         .option("output", {
           type: "string",
           description:
-            "Destination folder where CSV results are exported, relative or absolute path. If a output points to a file, will export all results to one file only",
+            "Destination folder or file where CSV results are exported, relative or absolute path",
         })
         .option("maxEmails", {
           type: "number",

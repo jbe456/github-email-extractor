@@ -1,7 +1,7 @@
 import { OctokitResponse, RateLimitGetResponseData } from "@octokit/types";
 import Table from "cli-table";
 import _ from "lodash";
-import { RepoInfoAndExport, utcToTimeString } from "./utils";
+import { utcToTimeString, RepoInfo } from "./utils";
 
 export const printStatus = (
   rateLimit: OctokitResponse<RateLimitGetResponseData>
@@ -32,21 +32,17 @@ export const printReposToAnalyse = (reposToAnalyze: string[]) => {
 };
 
 export const printExtractSummary = ({
-  exportIntoOneFile,
-  output,
+  filePath,
   repoInfos,
 }: {
-  exportIntoOneFile: boolean;
-  output: string;
-  repoInfos: RepoInfoAndExport[];
+  filePath: string;
+  repoInfos: RepoInfo[];
 }) => {
   console.log("-----------------------------------------------");
   console.log("                    SUMMARY                    ");
   console.log("-----------------------------------------------");
 
-  if (exportIntoOneFile) {
-    console.log(`Results exported to ${output}`);
-  }
+  console.log(`Results exported to ${filePath}`);
 
   const table = new Table({
     head: ["repo", "emails", "users", "rate"],

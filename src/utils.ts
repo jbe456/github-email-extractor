@@ -37,8 +37,6 @@ export type RepoInfo = {
   topics: string[];
 };
 
-export type RepoInfoAndExport = RepoInfo & { csvContent: string };
-
 export type SearchReposOptions = {
   cache: Cache;
   octokit: Octokit;

@@ -8,7 +8,6 @@ import {
   RepositoryExtractOptions,
   RepoInfo,
   ExtractOptions,
-  RepoInfoAndExport,
   SearchReposOptions,
   ExecOptions,
   ExtractUsersOptions,
@@ -268,14 +267,12 @@ export const extract = async ({
   repos,
   query,
 }: ExtractOptions) => {
-  const repoInfos: RepoInfoAndExport[] = [];
+  const repoInfos: RepoInfo[] = [];
   const octokit = createOctokit({ clientId, clientSecret });
   const cache = await setupCache({
     days: cacheExpiry,
     path: cachePath,
   });
-
-  const exportIntoOneFile = output && path.parse(output).ext !== "";
 
   let reposToAnalyze: string[];
   if (query) {
@@ -298,41 +295,33 @@ export const extract = async ({
       maxEmails,
     });
 
-    const csvContent = toCSVContent({
-      owner,
-      repo,
-      topics: repoInfo.topics,
-      userInfos: repoInfo.userInfos,
-      maxEmails,
-    });
-
-    if (!exportIntoOneFile) {
-      const csvHeaders = getCSVHeaders({ maxEmails });
-
-      const fileName = `${owner}-${repo}.csv`;
-      const filePath =
-        output !== undefined ? path.join(output, fileName) : fileName;
-
-      exportRepoData({
-        content: `${csvHeaders}\n${csvContent}`,
-        filePath,
-      });
-
-      console.log(`Results exported to ${filePath}`);
-    }
-
-    repoInfos.push({ ...repoInfo, csvContent });
+    repoInfos.push(repoInfo);
   }, Promise.resolve());
 
-  if (exportIntoOneFile) {
-    const csvHeaders = getCSVHeaders({ maxEmails });
-    exportRepoData({
-      content: `${csvHeaders}\n${repoInfos
-        .map((info) => info.csvContent)
-        .join("\n")}`,
-      filePath: output,
-    });
+  const defaultFileName = "results.csv";
+  let filePath: string;
+  if (output !== undefined) {
+    const outputHasFileName = output && path.parse(output).ext !== "";
+    filePath = outputHasFileName ? output : path.join(output, defaultFileName);
+  } else {
+    filePath = defaultFileName;
   }
 
-  printExtractSummary({ exportIntoOneFile, output, repoInfos });
+  const csvHeaders = getCSVHeaders({ maxEmails });
+  exportRepoData({
+    content: `${csvHeaders}\n${repoInfos
+      .map((info) =>
+        toCSVContent({
+          owner: info.owner,
+          repo: info.repo,
+          topics: info.topics,
+          userInfos: info.userInfos,
+          maxEmails,
+        })
+      )
+      .join("\n")}`,
+    filePath,
+  });
+
+  printExtractSummary({ filePath, repoInfos });
 };
