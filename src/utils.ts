@@ -51,6 +51,28 @@ type ExportOptions = {
   filePath: string;
 };
 
+export type ExecOptions = {
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+};
+
+export type ExtractUsersOptions = {
+  cache: Cache;
+  octokit: Octokit;
+  owner: string;
+  repo: string;
+  callback: (options: {
+    step: string;
+    resultCount: number;
+    newUsers: number;
+  }) => void;
+};
+
+export type PushEvents = {
+  payload: { commits: { author: { email: string } }[] };
+};
+
 export const utcToTimeString = (utcSeconds: number) => {
   const date = new Date(0);
   date.setUTCSeconds(utcSeconds);

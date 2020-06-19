@@ -10,6 +10,9 @@ import {
   ExtractOptions,
   RepoInfoAndExport,
   SearchReposOptions,
+  ExecOptions,
+  ExtractUsersOptions,
+  PushEvents,
 } from "./utils";
 import { Octokit } from "@octokit/rest";
 import { ActivityListStargazersForRepoResponseData } from "@octokit/types";
@@ -18,110 +21,100 @@ import _ from "lodash";
 import { Cache } from "cache-manager";
 import { printExtractSummary, printReposToAnalyse } from "./logging";
 
+const getOwners = async ({ owner }: ExecOptions) => [owner];
+const getStargazers = async ({ octokit, owner, repo }: ExecOptions) => {
+  const stargazers = await octokit.paginate(
+    octokit.activity.listStargazersForRepo,
+    {
+      per_page: 100,
+      owner,
+      repo,
+    }
+  );
+
+  return (stargazers as ActivityListStargazersForRepoResponseData).map(
+    (s) => s.login
+  );
+};
+
+const getWatchers = async ({ octokit, owner, repo }: ExecOptions) => {
+  const watchers = await octokit.paginate(
+    octokit.activity.listWatchersForRepo,
+    {
+      per_page: 100,
+      owner,
+      repo,
+    }
+  );
+
+  return watchers.map((w) => w.login);
+};
+
+const getForkOwners = async ({ octokit, owner, repo }: ExecOptions) => {
+  const forks = await octokit.paginate(octokit.repos.listForks, {
+    per_page: 100,
+    owner,
+    repo,
+  });
+
+  return _.uniq(forks.map((f) => f.owner.login));
+};
+
+const getIssueReportersAndAssignees = async ({
+  octokit,
+  owner,
+  repo,
+}: ExecOptions) => {
+  const issues = await octokit.paginate(octokit.issues.listForRepo, {
+    per_page: 100,
+    owner,
+    repo,
+  });
+
+  const reporters = issues.map((i) => i.user.login);
+  const assignees = _.flattenDeep(
+    issues.map((i) => i.assignees.map((a) => a.login))
+  );
+
+  return _.uniq([...reporters, ...assignees]);
+};
+
+const getIssueCommenters = async ({ octokit, owner, repo }: ExecOptions) => {
+  const comments = await octokit.paginate(octokit.issues.listCommentsForRepo, {
+    per_page: 100,
+    owner,
+    repo,
+  });
+
+  return _.uniq(comments.map((c) => c.user.login));
+};
+
 const extractUsers = async ({
   cache,
   octokit,
   owner,
   repo,
   callback,
-}: {
-  cache: Cache;
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  callback: (options: {
-    step: string;
-    resultCount: number;
-    newUsers: number;
-  }) => void;
-}) => {
+}: ExtractUsersOptions) => {
   let users: string[] = [];
   let userCount = 0;
 
   const steps = [
-    { type: "owner", exec: () => [owner] },
-    {
-      type: "stargazer(s)",
-      exec: async () => {
-        const stargazers = await octokit.paginate(
-          octokit.activity.listStargazersForRepo,
-          {
-            per_page: 100,
-            owner,
-            repo,
-          }
-        );
-
-        return (stargazers as ActivityListStargazersForRepoResponseData).map(
-          (s) => s.login
-        );
-      },
-    },
-    {
-      type: "watcher(s)",
-      exec: async () => {
-        const watchers = await octokit.paginate(
-          octokit.activity.listWatchersForRepo,
-          {
-            per_page: 100,
-            owner,
-            repo,
-          }
-        );
-
-        return watchers.map((w) => w.login);
-      },
-    },
-    {
-      type: "fork owner(s)",
-      exec: async () => {
-        const forks = await octokit.paginate(octokit.repos.listForks, {
-          per_page: 100,
-          owner,
-          repo,
-        });
-
-        return _.uniq(forks.map((f) => f.owner.login));
-      },
-    },
+    { type: "owner", exec: getOwners },
+    { type: "stargazer(s)", exec: getStargazers },
+    { type: "watcher(s)", exec: getWatchers },
+    { type: "fork owner(s)", exec: getForkOwners },
     {
       type: "issue reporter(s) and assignee(s)",
-      exec: async () => {
-        const issues = await octokit.paginate(octokit.issues.listForRepo, {
-          per_page: 100,
-          owner,
-          repo,
-        });
-
-        const reporters = issues.map((i) => i.user.login);
-        const assignees = _.flattenDeep(
-          issues.map((i) => i.assignees.map((a) => a.login))
-        );
-
-        return _.uniq([...reporters, ...assignees]);
-      },
+      exec: getIssueReportersAndAssignees,
     },
-    {
-      type: "issue commenter(s)",
-      exec: async () => {
-        const comments = await octokit.paginate(
-          octokit.issues.listCommentsForRepo,
-          {
-            per_page: 100,
-            owner,
-            repo,
-          }
-        );
-
-        return _.uniq(comments.map((c) => c.user.login));
-      },
-    },
+    { type: "issue commenter(s)", exec: getIssueCommenters },
   ];
 
   await Promise.all(
     steps.map(async (step) => {
       const result = await cache.wrap(`${step.type}-${owner}-${repo}`, () =>
-        step.exec()
+        step.exec({ octokit, owner, repo })
       );
 
       users.push(...result);
@@ -163,19 +156,20 @@ const getUserInfos = async ({
       if (u.email) {
         return { ...u, emails: [u.email] };
       } else {
-        const pushEvents: {
-          payload: { commits: { author: { email: string } }[] };
-        }[] = await cache.wrap(`push-events-${u.login}`, async () => {
-          const events = await octokit.paginate(
-            octokit.activity.listPublicEventsForUser,
-            {
-              per_page: 100,
-              username: u.login,
-            }
-          );
+        const pushEvents: PushEvents[] = await cache.wrap(
+          `push-events-${u.login}`,
+          async () => {
+            const events = await octokit.paginate(
+              octokit.activity.listPublicEventsForUser,
+              {
+                per_page: 100,
+                username: u.login,
+              }
+            );
 
-          return events.filter((e: any) => e.type === "PushEvent");
-        });
+            return events.filter((e: any) => e.type === "PushEvent");
+          }
+        );
 
         const emailsFromPushEvents = _.flattenDeep(
           pushEvents.map((e) => e.payload.commits.map((c) => c.author.email))
